@@ -1,1 +1,0 @@
-# image-minify-converter
