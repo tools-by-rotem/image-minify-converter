@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>כלי משולב להמרת פורמט תמונה וכיווץ משקל</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f39c12;
+            --background-color: #f4f7f9;
+            --card-background: #ffffff;
+            --text-color: #333333;
+            --border-radius: 12px;
+        }
+        body, html {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            background-color: var(--card-background);
+            border-radius: var(--border-radius);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            padding: 2rem;
+            width: 90%;
+            max-width: 500px;
+        }
+        h1 {
+            color: var(--primary-color);
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        .input-container {
+            margin-bottom: 1.5rem;
+        }
+        .input-container label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+        }
+        #imageInput {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #ddd;
+            border-radius: var(--border-radius);
+            transition: border-color 0.3s ease;
+        }
+        #imageInput:focus {
+            border-color: var(--primary-color);
+            outline: none;
+        }
+        .formats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+        .format-btn {
+            padding: 0.75rem;
+            background-color: #f0f0f0;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+        .format-btn.selected {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+        #selectedFormatDisplay {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+        }
+        #convertBtn, #downloadBtn {
+            display: block;
+            width: 100%;
+            padding: 1rem;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+            margin-top: 1rem;
+        }
+        #convertBtn {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        #downloadBtn {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+        #convertBtn:hover, #downloadBtn:hover {
+            opacity: 0.9;
+        }
+        #convertBtn:disabled, #downloadBtn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #loader {
+            display: none;
+            text-align: center;
+            margin-top: 1rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        @keyframes ellipsis {
+            0% { content: '.'; }
+            33% { content: '..'; }
+            66% { content: '...'; }
+        }
+        #loader::after {
+            content: '.';
+            display: inline-block;
+            animation: ellipsis 1.5s infinite;
+        }
+        #sizeInfo {
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: #666;
+            text-align: center;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/compressorjs/1.0.6/compressor.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>כלי משולב להמרת פורמט תמונה וכיווץ משקל</h1>
+        <div class="input-container">
+            <label for="imageInput">בחרו תמונה:</label>
+            <input type="file" id="imageInput" accept="image/*">
+        </div>
+        <div class="formats">
+            <button class="format-btn" data-format="jpeg">JPEG</button>
+            <button class="format-btn" data-format="png">PNG</button>
+            <button class="format-btn" data-format="webp">WebP</button>
+            <button class="format-btn" data-format="gif">GIF</button>
+            <button class="format-btn" data-format="bmp">BMP</button>
+            <button class="format-btn" data-format="tiff">TIFF</button>
+            <button class="format-btn" data-format="ico">ICO</button>
+            <button class="format-btn" data-format="avif">AVIF</button>
+            <button class="format-btn" data-format="heic">HEIC</button>
+        </div>
+        <div id="selectedFormatDisplay">פורמט נבחר: לא נבחר</div>
+        <button id="convertBtn" disabled>לחצו להמרת תמונה</button>
+        <div id="loader">ממיר</div>
+        <div id="sizeInfo"></div>
+        <button id="downloadBtn" disabled>הורדת תמונה ממוטבת</button>
+    </div>
+
+    <script>
+        const imageInput = document.getElementById('imageInput');
+        const convertBtn = document.getElementById('convertBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const loader = document.getElementById('loader');
+        const sizeInfo = document.getElementById('sizeInfo');
+        const formatBtns = document.querySelectorAll('.format-btn');
+        const selectedFormatDisplay = document.getElementById('selectedFormatDisplay');
+
+        let selectedFormat = '';
+        let convertedImage = null;
+
+        imageInput.addEventListener('change', () => {
+            convertBtn.disabled = !imageInput.files.length || !selectedFormat;
+        });
+
+        formatBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                formatBtns.forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                selectedFormat = btn.dataset.format;
+                selectedFormatDisplay.textContent = פורמט נבחר: ${selectedFormat.toUpperCase()};
+                convertBtn.disabled = !imageInput.files.length || !selectedFormat;
+            });
+        });
+
+        convertBtn.addEventListener('click', () => {
+            const file = imageInput.files[0];
+            if (!file || !selectedFormat) return;
+
+            loader.style.display = 'block';
+            convertBtn.disabled = true;
+            downloadBtn.disabled = true;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+
+                    canvas.toBlob((blob) => {
+                        if (blob) {
+                            new Compressor(blob, {
+                                quality: 0.6,
+                                success(result) {
+                                    convertedImage = new File([result], converted_image.${selectedFormat}, {
+                                        type: image/${selectedFormat}
+                                    });
+
+                                    const originalSize = file.size;
+                                    const compressedSize = result.size;
+
+                                    sizeInfo.textContent = משקל מקורי: ${formatSize(originalSize)}, משקל לאחר המרה: ${formatSize(compressedSize)};
+                                    
+                                    loader.style.display = 'none';
+                                    downloadBtn.disabled = false;
+                                },
+                                error(err) {
+                                    console.error(err.message);
+                                    loader.style.display = 'none';
+                                    alert('ההמרה נכשלה.');
+                                },
+                            });
+                        } else {
+                            loader.style.display = 'none';
+                            alert('ההמרה נכשלה.');
+                        }
+                    }, image/${selectedFormat});
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        downloadBtn.addEventListener('click', () => {
+            if (!convertedImage) return;
+
+            const url = URL.createObjectURL(convertedImage);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = convertedImage.name;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        });
+
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + " B";
+            else if (bytes < 1048576) return (bytes / 1024).toFixed(2) + " KB";
+            else return (bytes / 1048576).toFixed(2) + " MB";
+        }
+    </script>
+</body>
+</html>
